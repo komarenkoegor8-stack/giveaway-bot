@@ -2,11 +2,11 @@ import discord
 from discord.ext import commands
 import sqlite3
 import random
-
 import os
+
 TOKEN = os.environ.get("TOKEN")
 
-# --- База данных ---
+# --- Database ---
 conn = sqlite3.connect("giveaway.db")
 cursor = conn.cursor()
 
@@ -19,7 +19,7 @@ cursor.execute("""
 """)
 conn.commit()
 
-# --- Бот ---
+# --- Bot ---
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -31,7 +31,7 @@ def get_unique_ticket():
         if not cursor.fetchone():
             return number
 
-# --- Кнопка для участников ---
+# --- Giveaway button ---
 class GiveawayView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -45,7 +45,7 @@ class GiveawayView(discord.ui.View):
 
         if row:
             await interaction.response.send_message(
-                f"🎟️ У тебя уже есть билет: **#{row[0]}**", ephemeral=True
+                f"🎟️ You already have a ticket: **#{row[0]}**", ephemeral=True
             )
             return
 
@@ -57,62 +57,62 @@ class GiveawayView(discord.ui.View):
         conn.commit()
 
         await interaction.response.send_message(
-            f"✅ Ты в розыгрыше! Твой билет: **#{ticket}**", ephemeral=True
+            f"✅ You're in the giveaway! Your ticket: **#{ticket}**", ephemeral=True
         )
 
-# --- Админ-панель ---
+# --- Admin panel ---
 class AdminView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="🏆 Выбрать победителя", style=discord.ButtonStyle.danger, custom_id="pick_winner")
+    @discord.ui.button(label="🏆 Pick Winner", style=discord.ButtonStyle.danger, custom_id="pick_winner")
     async def pick_winner(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Нет доступа!", ephemeral=True)
+            await interaction.response.send_message("❌ No access!", ephemeral=True)
             return
 
         cursor.execute("SELECT user_id, username, ticket_number FROM tickets")
         rows = cursor.fetchall()
 
         if not rows:
-            await interaction.response.send_message("❌ Нет участников!", ephemeral=True)
+            await interaction.response.send_message("❌ No participants!", ephemeral=True)
             return
 
         user_id, username, ticket = random.choice(rows)
         await interaction.response.send_message(
-            f"🏆 Победитель: **{username}** с билетом **#{ticket}** (<@{user_id}>)!"
+            f"🏆 Winner: **{username}** with ticket **#{ticket}** (<@{user_id}>)!"
         )
 
-    @discord.ui.button(label="👥 Участники", style=discord.ButtonStyle.secondary, custom_id="show_participants")
+    @discord.ui.button(label="👥 Participants", style=discord.ButtonStyle.secondary, custom_id="show_participants")
     async def show_participants(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Нет доступа!", ephemeral=True)
+            await interaction.response.send_message("❌ No access!", ephemeral=True)
             return
 
         cursor.execute("SELECT username, ticket_number FROM tickets")
         rows = cursor.fetchall()
 
         if not rows:
-            await interaction.response.send_message("Участников пока нет.", ephemeral=True)
+            await interaction.response.send_message("No participants yet.", ephemeral=True)
             return
 
         text = "\n".join([f"#{ticket} — {name}" for name, ticket in rows])
-        await interaction.response.send_message(f"**Участники ({len(rows)}):**\n{text}", ephemeral=True)
+        await interaction.response.send_message(f"**Participants ({len(rows)}):**\n{text}", ephemeral=True)
 
-    @discord.ui.button(label="🗑️ Сбросить", style=discord.ButtonStyle.danger, custom_id="reset_giveaway")
+    @discord.ui.button(label="🗑️ Reset", style=discord.ButtonStyle.danger, custom_id="reset_giveaway")
     async def reset_giveaway(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Нет доступа!", ephemeral=True)
+            await interaction.response.send_message("❌ No access!", ephemeral=True)
             return
 
         cursor.execute("DELETE FROM tickets")
         conn.commit()
-        await interaction.response.send_message("✅ База очищена, можно начинать новый розыгрыш!", ephemeral=True)
+        await interaction.response.send_message("✅ Database cleared, ready for a new giveaway!", ephemeral=True)
 
-# --- События и команды ---
+# --- Events and commands ---
 @bot.event
 async def on_ready():
-    print(f"✅ Бот запущен: {bot.user}")
+    print(f"✅ Bot is running: {bot.user}")
     bot.add_view(GiveawayView())
     bot.add_view(AdminView())
 
@@ -120,8 +120,8 @@ async def on_ready():
 @commands.has_permissions(administrator=True)
 async def panel(ctx):
     embed = discord.Embed(
-        title="🎉 Розыгрыш",
-        description="Нажми кнопку ниже чтобы получить билет и участвовать в розыгрыше!",
+        title="🎉 Giveaway",
+        description="Click the button below to get your ticket and join the giveaway!",
         color=0x2b2d31
     )
     await ctx.send(embed=embed, view=GiveawayView())
@@ -130,8 +130,8 @@ async def panel(ctx):
 @commands.has_permissions(administrator=True)
 async def admin(ctx):
     embed = discord.Embed(
-        title="⚙️ Админ-панель",
-        description="Управление розыгрышем",
+        title="⚙️ Admin Panel",
+        description="Giveaway management",
         color=0xff0000
     )
     await ctx.send(embed=embed, view=AdminView())
